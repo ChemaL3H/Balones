@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escáner de Control - Jaula UTVAM</title>
+    <style>
+        :root {
+            --verde-utvam: #00392C;
+            --vino-utvam: #691A32;
+            --dorado-utvam: #B2915F;
+        }
+        body { font-family: Arial, sans-serif; text-align: center; background: var(--verde-utvam); color: white; padding: 20px; }
+        .logo { max-width: 160px; width: 100%; height: auto; margin-bottom: 10px; }
+        #reader { width: 100%; max-width: 500px; margin: 20px auto; background: black; border-radius: 8px; }
+        .status-box { padding: 15px; margin: 20px auto; max-width: 400px; border-radius: 8px; font-size: 1.2rem; font-weight: bold; white-space: pre-line; }
+        .espera { background: #64748b; }
+        .exito { background: var(--verde-utvam); border: 2px solid #16a34a; }
+        .error { background: var(--vino-utvam); }
+        .bloqueado { background: var(--dorado-utvam); color: #1e293b; }
+    </style>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body>
+
+    <img src="img/UtvamLogo.webp" alt="Logo UTVAM" class="logo">
+    <h1>Escáner de Validación (Jaula) - Los Héroes Tizayuca</h1>
+    <div id="reader"></div>
+    <div id="status" class="status-box espera">Esperando código QR...</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, runTransaction, set, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyAT0PJIWeph_0wu63V-mDjnnj1J9B7lJcM",
+        authDomain: "balones-1834b.firebaseapp.com",
+        databaseURL: "https://balones-1834b-default-rtdb.firebaseio.com",
+        projectId: "balones-1834b",
+        storageBucket: "balones-1834b.firebasestorage.app",
+        messagingSenderId: "396891894851",
+        appId: "1:396891894851:web:572ef0392fedd1610510f6",
+        measurementId: "G-W3JQE8GBXZ"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const statusBox = document.getElementById('status');
+
+    // Cooldown POR CÓDIGO QR individual (no global): evita que un mismo QR
+    // dejado accidentalmente frente a la cámara se lea dos veces (préstamo +
+    // devolución en el mismo instante), sin bloquear al siguiente alumno en
+    // la fila que trae un QR distinto.
+    const ULTIMO_ESCANEO = new Map(); // idCodigoQR -> timestamp del último procesamiento
+    const COOLDOWN_POR_QR_MS = 2 * 60 * 1000; // 2 minutos
+
+    // Cooldown corto y global solo para evitar procesar el mismo frame de
+    // video varias veces en milisegundos (no reemplaza al de arriba).
+    let bloqueoInstantaneo = 0;
+    const DEBOUNCE_MS = 1500;
+
+    function procesarEscaneo(idCodigoQR) {
+        const ahora = Date.now();
+
+        if (ahora < bloqueoInstantaneo) return;
+        bloqueoInstantaneo = ahora + DEBOUNCE_MS;
+
+        const ultimaVez = ULTIMO_ESCANEO.get(idCodigoQR);
+        if (ultimaVez && (ahora - ultimaVez) < COOLDOWN_POR_QR_MS) {
+            const segundosRestantes = Math.ceil((COOLDOWN_POR_QR_MS - (ahora - ultimaVez)) / 1000);
+            actualizarPantalla(`Este QR ya se leyó hace poco.\nEspera ${segundosRestantes}s antes de volver a intentar.`, "bloqueado");
+            return;
+        }
+        ULTIMO_ESCANEO.set(idCodigoQR, ahora);
+
+        const prestamoRef = ref(db, 'prestamos/' + idCodigoQR);
+        let estadoAnterior = null;
+
+        runTransaction(prestamoRef, (datos) => {
+            if (datos === null) return datos;
+
+            estadoAnterior = datos.estado;
+            const timestampActual = new Date().toISOString();
+
+            if (datos.estado === 0) {
+                datos.estado = 1;
+                datos.hora_prestamo = timestampActual;
+            } else if (datos.estado === 1) {
+                datos.estado = 2;
+                datos.hora_devolucion = timestampActual;
+            }
+
+            return datos;
+        }).then((resultado) => {
+            if (!resultado.committed || resultado.snapshot.val() === null) {
+                actualizarPantalla("Código QR no válido o inexistente", "error");
+                return;
+            }
+
+            const datos = resultado.snapshot.val();
+
+            if (estadoAnterior === 0) {
+                solicitarAperturaJaula();
+                actualizarPantalla(`PRÉSTAMO AUTORIZADO\nAlumno: ${datos.nombre}`, "exito");
+            } else if (estadoAnterior === 1) {
+                solicitarAperturaJaula();
+                actualizarPantalla(`DEVOLUCIÓN EXITOSA\nGracias, ${datos.nombre}`, "exito");
+                remove(ref(db, 'matriculas_activas/' + datos.matricula))
+                    .catch((err) => console.error('Error al liberar matrícula:', err));
+                runTransaction(ref(db, 'control_inventario/balones_disponibles'), (disponibles) => (disponibles || 0) + 1)
+                    .catch((err) => console.error('Error al regresar balón al inventario:', err));
+            } else if (estadoAnterior === 2) {
+                actualizarPantalla("ERROR: Este boleto ya completó su ciclo de devolución.", "error");
+            }
+        }).catch((err) => {
+            console.error('Error en la transacción:', err);
+            actualizarPantalla("Error de conexión. Intenta de nuevo.", "error");
+        });
+    }
+
+    function solicitarAperturaJaula() {
+        set(ref(db, 'control_jaula/abrir_puerta'), true);
+    }
+
+    function actualizarPantalla(mensaje, tipo) {
+        statusBox.innerText = mensaje;
+        statusBox.className = "status-box " + tipo;
+        setTimeout(() => {
+            statusBox.innerText = "Esperando código QR...";
+            statusBox.className = "status-box espera";
+        }, tipo === "bloqueado" ? 3000 : 5000);
+    }
+
+    const html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+    html5QrcodeScanner.render(procesarEscaneo);
+</script>
+</body>
+</html>
