@@ -86,5 +86,17 @@
 
 <script type="module" src="js/firebase.js"></script>
 <script type="module" src="js/encuesta.js"></script>
+    <script>
+window.addEventListener('unhandledrejection', function(e) {
+  document.body.insertAdjacentHTML('afterbegin', 
+    '<div style="background:orange;color:black;padding:20px;font-size:14px;position:fixed;top:0;left:0;right:0;z-index:99999;word-break:break-all">PROMISE ERROR: ' + e.reason + '</div>');
+});
+  </script>
 </body>
+  <script>
+window.addEventListener('error', function(e) {
+  document.body.insertAdjacentHTML('afterbegin', 
+    '<div style="background:red;color:white;padding:20px;font-size:14px;position:fixed;top:0;left:0;right:0;z-index:99999;word-break:break-all">ERROR: ' + e.message + ' — Archivo: ' + e.filename + ' — Línea: ' + e.lineno + '</div>');
+});
+  </script>
 </html>
