@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Préstamo de Balones - UTVAM Los Héroes Tizayuca</title>
+    <style>
+        :root {
+            --verde-utvam: #00392C;
+            --vino-utvam: #691A32;
+            --dorado-utvam: #B2915F;
+        }
+        body { font-family: Arial, sans-serif; background: #f4f4f9; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
+        .logo { max-width: 220px; width: 100%; height: auto; margin-bottom: 10px; }
+        input, select, button { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+        button { background: var(--verde-utvam); color: white; font-weight: bold; cursor: pointer; border: none; }
+        button:hover { background: var(--vino-utvam); }
+        button:disabled { background: #93c5fd; cursor: not-allowed; }
+        #qr-container { margin-top: 20px; display: none; justify-content: center; flex-direction: column; align-items: center; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="container">
+    <img src="img/UtvamLogo.webp" alt="Logo UTVAM" class="logo">
+    <div id="form-sec">
+        <p><small>Los Héroes Tizayuca</small></p>
+        <h3>Registro y Encuesta - Préstamo de Balones</h3>
+        <form id="encuestaForm">
+            <input type="text" id="nombre" placeholder="Nombre Completo" required>
+            <input type="text" id="matricula" placeholder="Matrícula" required>
+            <select id="carrera" required>
+                <option value="">Seleccione una carrera</option>
+                <option value="TIE">Tecnologías de la Información e Innovación Digital (TIE)</option>
+                <option value="TID">Tecnologías de la Información y Desarrollo de Software (TID)</option>
+                <option value="Mecatrónica">Mecatrónica</option>
+                <option value="Lengua Inglesa">Lengua Inglesa</option>
+                <option value="Negocios">Negocios</option>
+            </select>
+
+            <!-- Grupos de placeholder (01-05): ajusta según los grupos reales de cada cuatrimestre -->
+            <select id="cuatrimestre" required>
+                <option value="">Cuatrimestre</option>
+                <option value="1">1°</option>
+                <option value="2">2°</option>
+                <option value="3">3°</option>
+                <option value="4">4°</option>
+                <option value="5">5°</option>
+                <option value="7">7°</option>
+                <option value="8">8°</option>
+                <option value="9">9°</option>
+                <option value="10">10°</option>
+                <option value="11">11°</option>
+            </select>
+            <select id="grupo" required>
+                <option value="">Grupo</option>
+                <option value="01">01</option>
+                <option value="02">02</option>
+                <option value="03">03</option>
+                <option value="04">04</option>
+                <option value="05">05</option>
+            </select>
+
+            <label for="rfid" style="font-size:0.85rem; text-align:left; display:block; margin-top:12px;">Clave trasera de credencial (19 dígitos)</label>
+            <p style="font-size:0.75rem; color:#64748b; text-align:left; margin:2px 0;">La encuentras en la parte trasera de tu credencial de la universidad, en el chip RFID (misma tecnología que las tarjetas del Metro CDMX).</p>
+            <img src="img/ejemplo.webp" alt="Ejemplo de ubicación de la clave RFID en la credencial" style="max-width:100%; border-radius:6px; margin:6px 0;">
+            <input type="text" id="rfid" placeholder="19 dígitos" inputmode="numeric" maxlength="19" required>
+
+            <p><strong>Breve Encuesta:</strong></p>
+            <label>¿En qué condiciones físicas consideras que está el material?</label>
+            <select id="pregunta1" required>
+                <option value="Excelente">Excelente</option>
+                <option value="Bueno">Bueno / Regular</option>
+                <option value="Malo">Malo / Desgastado</option>
+            </select>
+
+            <button type="submit">Generar mi pase QR</button>
+        </form>
+    </div>
+
+    <div id="qr-container">
+        <h3>¡Registro Exitoso!</h3>
+        <p>Presenta este código QR en el lector de la jaula para retirar y devolver tu balón.</p>
+        <div id="qrcode"></div>
+        <p><small id="qr-id"></small></p>
+    </div>
+</div>
+
+<script type="module" src="js/firebase.js"></script>
+<script type="module" src="js/encuesta.js"></script>
+</body>
+</html>
